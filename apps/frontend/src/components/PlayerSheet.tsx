@@ -61,13 +61,15 @@ function NewsList({
 
 function DepthBlock({ depth }: { depth: DepthSpot | null }) {
   if (!depth) {
-    return <p className="text-[12px] text-mute">No ESPN depth-chart slot found for this player.</p>;
+    return <p className="text-[12px] text-mute">No depth-chart slot found for this player.</p>;
   }
+  const source = depth.source || depth.chart;
   return (
     <div>
       <p className="text-sm font-semibold">{depth.label}</p>
       <p className="text-[12px] text-mute">
-        {depth.chart}
+        {source}
+        {depth.chart && depth.chart !== source ? ` · ${depth.chart}` : ""}
         {depth.ahead.length ? ` · Behind ${depth.ahead.join(", ")}` : " · Top of this group"}
       </p>
       <ol className="mt-2 space-y-1 text-[12px]">
@@ -151,7 +153,7 @@ export function PlayerSheet({ player, onClose }: Props) {
 
         <div className="mt-4 grid gap-6 min-[800px]:grid-cols-2">
           <section>
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-mute">ESPN depth chart</h3>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-mute">Depth chart</h3>
             {card ? (
               <DepthBlock depth={card.depth} />
             ) : errorText ? (

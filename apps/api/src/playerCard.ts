@@ -58,6 +58,7 @@ const ESPN_TEAM_IDS: Record<string, string> = {
 export type NewsItem = { title: string; url: string; source?: string };
 
 export type DepthSpot = {
+  source: string;
   team: string;
   chart: string;
   slot: string;
@@ -159,7 +160,119 @@ function coreAthletes(
     .sort((a, b) => a.rank - b.rank || a.id.localeCompare(b.id));
 }
 
+type SleeperRow = {
+  name: string;
+  team: string;
+  pos: string;
+  slot: string;
+  order: number | null;
+  espnId?: string;
+};
+
+function sleeperTeam(abbr: string) {
+  return abbr === "WSH" ? "WAS" : abbr;
+}
+
+function fantasySlot(pos: string) {
+  const slot = pos.toUpperCase();
+  return slot === "FB" ? "RB" : slot;
+}
+
+async function sleeperSkillPlayers(): Promise<SleeperRow[]> {
+  return cached("sleeperSkillDepth", 12 * 60 * 60 * 1000, async () => {
+    const dumps = await Promise.all(
+      ["QB", "RB", "WR", "TE"].map(async (position) => {
+        const res = await fetch(`https://api.sleeper.app/v1/players/nfl?position=${position}&active=true`, {
+          headers: { Accept: "application/json", "User-Agent": BROWSER_UA },
+        });
+        if (!res.ok) throw new Error(`Sleeper ${res.status}`);
+        return (await res.json()) as Record<
+          string,
+          {
+            full_name?: string;
+            team?: string | null;
+            position?: string | null;
+            depth_chart_position?: string | null;
+            depth_chart_order?: number | null;
+            espn_id?: string | number | null;
+            active?: boolean;
+          }
+        >;
+      }),
+    );
+    const rows: SleeperRow[] = [];
+    for (const dump of dumps) {
+      for (const player of Object.values(dump)) {
+        if (!player?.full_name || !player.team || player.active === false) continue;
+        const pos = player.position || player.depth_chart_position;
+        if (!pos || !["QB", "RB", "WR", "TE", "FB"].includes(pos)) continue;
+        rows.push({
+          name: player.full_name,
+          team: player.team,
+          pos,
+          slot: player.depth_chart_position || pos,
+          order: player.depth_chart_order == null ? null : Number(player.depth_chart_order),
+          espnId: player.espn_id != null && player.espn_id !== "" ? String(player.espn_id) : undefined,
+        });
+      }
+    }
+    return rows;
+  });
+}
+
+function depthSpot(
+  source: string,
+  team: string,
+  chart: string,
+  slot: string,
+  rank: number,
+  unit: DepthSpot["unit"],
+): DepthSpot {
+  const ahead = unit.filter((row) => row.rank < rank).map((row) => row.name);
+  const ordinal = rank === 1 ? "starter" : rank === 2 ? "2nd" : rank === 3 ? "3rd" : `${rank}th`;
+  return {
+    source,
+    team,
+    chart,
+    slot,
+    rank,
+    label: `${team} ${slot} (${ordinal})`,
+    ahead,
+    unit,
+  };
+}
+
+async function lookupSleeperDepth(player: Player): Promise<DepthSpot | null> {
+  const abbr = espnAbbr(player.nflTeam);
+  if (!abbr) return null;
+  const team = sleeperTeam(abbr);
+  const rows = await sleeperSkillPlayers();
+  const want = fantasySlot(player.position);
+  const group = rows.filter((row) => row.team === team && fantasySlot(row.slot || row.pos) === want);
+  const me =
+    group.find((row) => player.espnId && row.espnId === player.espnId) ??
+    group.find((row) => namesMatch(row.name, player));
+  if (!me || me.order == null) return null;
+  const unit = group
+    .filter((row) => row.order != null)
+    .sort((a, b) => (a.order ?? 99) - (b.order ?? 99) || a.name.localeCompare(b.name))
+    .slice(0, 8)
+    .map((row) => ({
+      rank: row.order ?? 99,
+      name: row.name,
+      self: row === me || namesMatch(row.name, player) || (!!player.espnId && row.espnId === player.espnId),
+    }));
+  if (!unit.some((row) => row.self)) return null;
+  return depthSpot("Sleeper", abbr, "Sleeper", want, me.order, unit);
+}
+
 export async function lookupDepth(player: Player): Promise<DepthSpot | null> {
+  const sleeper = await lookupSleeperDepth(player).catch(() => null);
+  if (sleeper) return sleeper;
+  return lookupEspnDepth(player);
+}
+
+async function lookupEspnDepth(player: Player): Promise<DepthSpot | null> {
   const abbr = espnAbbr(player.nflTeam);
   if (!abbr) return null;
   const teamId = ESPN_TEAM_IDS[abbr];
@@ -207,18 +320,7 @@ export async function lookupDepth(player: Player): Promise<DepthSpot | null> {
     name: names[index],
     self: athlete.id === player.espnId || namesMatch(names[index], player),
   }));
-  const ahead = unit.filter((row) => row.rank < hit!.rank).map((row) => row.name);
-  const ordinal =
-    hit.rank === 1 ? "starter" : hit.rank === 2 ? "2nd" : hit.rank === 3 ? "3rd" : `${hit.rank}th`;
-  return {
-    team: abbr,
-    chart: offense.name,
-    slot,
-    rank: hit.rank,
-    label: `${abbr} ${slot} (${ordinal})`,
-    ahead,
-    unit,
-  };
+  return depthSpot("ESPN", abbr, offense.name, slot, hit.rank, unit);
 }
 
 function decodeXml(value: string) {

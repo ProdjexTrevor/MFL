@@ -21,6 +21,7 @@ export type Player = {
 export type NewsItem = { title: string; url: string; source?: string };
 
 export type DepthSpot = {
+  source?: string;
   team: string;
   chart: string;
   slot: string;
