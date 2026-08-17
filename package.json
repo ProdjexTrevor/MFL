@@ -8,6 +8,9 @@
     "build": "pnpm -r build",
     "start": "pnpm --filter @mfl/api start"
   },
+  "engines": {
+    "node": ">=20"
+  },
   "pnpm": {
     "onlyBuiltDependencies": ["esbuild"]
   }
