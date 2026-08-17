@@ -43,6 +43,7 @@ export type Player = {
   espnId?: string;
   jersey?: string;
   college?: string;
+  lastYearPts?: number;
 };
 
 export type Franchise = {
@@ -87,9 +88,10 @@ async function mflGet(
   host: string,
   command: string,
   params: Record<string, string>,
+  year = YEAR,
 ): Promise<unknown> {
   return enqueue(async () => {
-    const url = new URL(`https://${host}/${YEAR}/${command}`);
+    const url = new URL(`https://${host}/${year}/${command}`);
     for (const [key, value] of Object.entries(params)) {
       if (value) url.searchParams.set(key, value);
     }
@@ -230,10 +232,36 @@ function addPosRanks(
   }
 }
 
+export async function fetchLastYearScores(): Promise<Map<string, number>> {
+  const lastYear = String(Number(YEAR) - 1);
+  if (!Number.isFinite(Number(lastYear))) return new Map();
+  const entries = await cached(`lastYearScores:${lastYear}`, 12 * 60 * 60 * 1000, async () => {
+    await delay(1200);
+    try {
+      const data = (await mflGet(
+        HOST,
+        "export",
+        { TYPE: "playerScores", L: LEAGUE_ID, W: "YTD" },
+        lastYear,
+      )) as {
+        playerScores?: { playerScore?: Array<{ id?: string; score?: string }> };
+      };
+      return asArray(data.playerScores?.playerScore)
+        .map((row) => [String(row.id), Number(row.score)] as [string, number])
+        .filter(([id, pts]) => id && Number.isFinite(pts));
+    } catch (err) {
+      console.warn("Last-year player scores unavailable", err);
+      return [];
+    }
+  });
+  return new Map(Array.isArray(entries) ? entries : []);
+}
+
 export async function rankedPlayers(): Promise<Player[]> {
   const players = await fetchPlayers();
   const adp = await fetchAdp();
   const sharks = await fetchSharksRanks();
+  const lastYearPts = await fetchLastYearScores();
   const ranked = players.map((player) => {
     const a = adp.get(player.id);
     const sharksRank = sharks.get(player.id);
@@ -242,6 +270,7 @@ export async function rankedPlayers(): Promise<Player[]> {
       adpRank: a?.rank,
       adp: a?.adp,
       sharksRank,
+      lastYearPts: lastYearPts.get(player.id),
     };
   });
   addPosRanks(ranked, (p) => p.adpRank, (p, n) => {
@@ -428,6 +457,7 @@ export async function buildLive(playerIndex: Map<string, Player>) {
         espnId: player?.espnId,
         jersey: player?.jersey,
         college: player?.college,
+        lastYearPts: player?.lastYearPts,
         status: slot.status,
       };
     });

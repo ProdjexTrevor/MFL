@@ -1,5 +1,5 @@
 import type { Franchise, RosterPlayer } from "../types";
-import { POSITIONS, nflAbbr, posClass, posRank } from "../lib/format";
+import { POSITIONS, formatPts, posClass } from "../lib/format";
 
 const STARTER_FLOOR: Record<string, number> = { QB: 1, RB: 2, WR: 3, TE: 1 };
 
@@ -24,7 +24,7 @@ export function MyRosterBar({ franchise, roster, onSelectPlayer, onDockSide }: P
     pos,
     players: roster
       .filter((player) => player.position === pos)
-      .sort((a, b) => a.name.localeCompare(b.name)),
+      .sort((a, b) => (b.lastYearPts ?? -1) - (a.lastYearPts ?? -1) || a.name.localeCompare(b.name)),
   }));
 
   return (
@@ -77,8 +77,8 @@ export function MyRosterBar({ franchise, roster, onSelectPlayer, onDockSide }: P
                         {player.name}
                         {player.isRookie ? <span className="ml-1 text-[9px] font-semibold text-gold">RK</span> : null}
                       </span>
-                      <span className="shrink-0 text-[10px] tabular-nums text-mute">
-                        {posRank(player.position, player.adpPosRank) || nflAbbr(player.nflTeam)}
+                      <span className="shrink-0 text-[10px] tabular-nums text-mute" title="Last year's league points">
+                        {player.lastYearPts == null ? "—" : formatPts(player.lastYearPts)}
                       </span>
                     </button>
                   </li>

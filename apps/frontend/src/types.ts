@@ -16,6 +16,7 @@ export type Player = {
   espnId?: string;
   jersey?: string;
   college?: string;
+  lastYearPts?: number;
 };
 
 export type NewsItem = { title: string; url: string; source?: string };

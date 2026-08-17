@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { DepthSpot, NewsItem, Player, PlayerCard } from "../types";
 import { getPlayerCard } from "../api";
-import { nflAbbr, playerNewsLinks, posClass, posRank } from "../lib/format";
+import { nflAbbr, playerNewsLinks, formatPts, posClass, posRank } from "../lib/format";
 
 type Props = {
   player: Player;
@@ -131,6 +131,7 @@ export function PlayerSheet({ player, onClose }: Props) {
               {shown.college ? ` · ${shown.college}` : ""}
               {shown.isRookie ? " · Rookie" : ""}
               {shown.draftYear ? ` · Draft ${shown.draftYear}` : ""}
+              {shown.lastYearPts != null ? ` · ${formatPts(shown.lastYearPts)} pts last year` : ""}
             </p>
           </div>
           <button type="button" onClick={onClose} className="rounded px-2 py-1 text-sm text-mute hover:text-ink">

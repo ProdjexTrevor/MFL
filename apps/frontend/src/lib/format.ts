@@ -53,6 +53,11 @@ export function posRank(pos: string, rank?: number): string {
   return `${pos}${rank}`;
 }
 
+export function formatPts(n?: number): string {
+  if (n == null || !Number.isFinite(n)) return "—";
+  return n.toLocaleString("en-US", { maximumFractionDigits: 1 });
+}
+
 export function rankSources(player: {
   position: string;
   adpPosRank?: number;

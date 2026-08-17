@@ -1,5 +1,5 @@
 import type { DraftPick, Franchise, RosterPlayer } from "../types";
-import { POSITIONS, nflAbbr, posClass, posRank, teamLabel } from "../lib/format";
+import { POSITIONS, formatPts, posClass, teamLabel } from "../lib/format";
 
 const STARTER_FLOOR: Record<string, number> = { QB: 1, RB: 2, WR: 3, TE: 1 };
 
@@ -39,7 +39,11 @@ function TeamBlock({
   const ordered = [...roster].sort((a, b) => {
     const order = POSITIONS.indexOf(a.position as (typeof POSITIONS)[number]);
     const other = POSITIONS.indexOf(b.position as (typeof POSITIONS)[number]);
-    return (order === -1 ? 9 : order) - (other === -1 ? 9 : other) || a.name.localeCompare(b.name);
+    return (
+      (order === -1 ? 9 : order) - (other === -1 ? 9 : other) ||
+      (b.lastYearPts ?? -1) - (a.lastYearPts ?? -1) ||
+      a.name.localeCompare(b.name)
+    );
   });
 
   return (
@@ -78,8 +82,8 @@ function TeamBlock({
               {p.name}
               {p.isRookie ? <span className="ml-1 text-[9px] font-semibold text-gold">RK</span> : null}
             </span>
-            <span className="text-[11px] tabular-nums text-mute">
-              {posRank(p.position, p.adpPosRank) || nflAbbr(p.nflTeam)}
+            <span className="text-[11px] tabular-nums text-mute" title="Last year's league points">
+              {p.lastYearPts == null ? "—" : formatPts(p.lastYearPts)}
             </span>
             </button>
           </li>
@@ -122,7 +126,7 @@ export function TeamPanel({
         title="On the clock"
         franchise={byId.get(clockId)}
         roster={rosters[clockId] ?? []}
-        hint="Gold ring = below starter floor"
+        hint="Gold ring = below starter floor · pts are 2025 league totals"
         onSelectPlayer={onSelectPlayer}
       />
       {showMine && (
