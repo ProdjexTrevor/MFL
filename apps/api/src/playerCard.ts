@@ -20,6 +20,41 @@ const MFL_TO_ESPN: Record<string, string> = {
   SD: "LAC",
 };
 
+const ESPN_TEAM_IDS: Record<string, string> = {
+  ARI: "22",
+  ATL: "1",
+  BAL: "33",
+  BUF: "2",
+  CAR: "29",
+  CHI: "3",
+  CIN: "4",
+  CLE: "5",
+  DAL: "6",
+  DEN: "7",
+  DET: "8",
+  GB: "9",
+  HOU: "34",
+  IND: "11",
+  JAX: "30",
+  KC: "12",
+  LV: "13",
+  LAC: "24",
+  LAR: "14",
+  MIA: "15",
+  MIN: "16",
+  NE: "17",
+  NO: "18",
+  NYG: "19",
+  NYJ: "20",
+  PHI: "21",
+  PIT: "23",
+  SF: "25",
+  SEA: "26",
+  TB: "27",
+  TEN: "10",
+  WSH: "28",
+};
+
 export type NewsItem = { title: string; url: string; source?: string };
 
 export type DepthSpot = {
@@ -37,27 +72,26 @@ function espnAbbr(mflTeam: string): string | null {
   return MFL_TO_ESPN[mflTeam] ?? mflTeam;
 }
 
+function seasonYears(): number[] {
+  const year = Number(process.env.MFL_YEAR?.trim() || "2026") || 2026;
+  return [year, year - 1];
+}
+
 async function espnJson<T>(url: string): Promise<T> {
   const res = await fetch(url, {
-    headers: { Accept: "application/json", "User-Agent": BROWSER_UA },
+    headers: {
+      Accept: "application/json",
+      "User-Agent": BROWSER_UA,
+      Referer: "https://www.espn.com/",
+    },
   });
   if (!res.ok) throw new Error(`ESPN ${res.status}`);
   return (await res.json()) as T;
 }
 
-async function espnTeamIds(): Promise<Map<string, string>> {
-  const entries = await cached("espnTeamIds", 24 * 60 * 60 * 1000, async () => {
-    const data = await espnJson<{
-      sports?: Array<{
-        leagues?: Array<{ teams?: Array<{ team?: { id: string; abbreviation: string } }> }>;
-      }>;
-    }>("https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams?limit=40");
-    const teams = data.sports?.[0]?.leagues?.[0]?.teams ?? [];
-    return teams
-      .map((row) => [row.team?.abbreviation ?? "", row.team?.id ?? ""] as [string, string])
-      .filter(([abbr, id]) => abbr && id);
-  });
-  return new Map(Array.isArray(entries) ? entries : []);
+function athleteIdFromRef(ref?: string): string | null {
+  if (!ref) return null;
+  return ref.match(/\/athletes\/(\d+)/)?.[1] ?? null;
 }
 
 function namesMatch(espnName: string, player: Player) {
@@ -66,63 +100,112 @@ function namesMatch(espnName: string, player: Player) {
   return a === b;
 }
 
-type EspnDepthResponse = {
-  depthchart?: Array<{
-    name: string;
-    positions?: Record<
-      string,
-      {
-        position?: { abbreviation?: string };
-        athletes?: Array<{ id?: string; displayName?: string }>;
-      }
-    >;
-  }>;
+type CoreAthlete = { id: string; rank: number };
+
+type CoreChart = {
+  name: string;
+  positions?: Record<
+    string,
+    {
+      position?: { abbreviation?: string };
+      athletes?: Array<{ rank?: number; athlete?: { $ref?: string } }>;
+    }
+  >;
 };
 
-async function espnOffenseChart(teamId: string) {
-  return cached(`espnDepthChart:${teamId}`, 30 * 60 * 1000, async () => {
-    const data = await espnJson<EspnDepthResponse>(
-      `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${teamId}/depthcharts`,
-    );
-    return (
-      data.depthchart?.find((chart) =>
-        Object.keys(chart.positions ?? {}).some((key) => /^(qb|rb|te|wr)/i.test(key)),
-      ) ?? data.depthchart?.[0] ??
-      null
-    );
+async function espnOffenseChart(teamId: string): Promise<CoreChart | null> {
+  return cached(`espnCoreDepth:${teamId}`, 30 * 60 * 1000, async () => {
+    for (const year of seasonYears()) {
+      try {
+        const data = await espnJson<{ items?: CoreChart[] }>(
+          `https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${year}/teams/${teamId}/depthcharts?lang=en&region=us`,
+        );
+        const charts = data.items ?? [];
+        const offense =
+          charts.find((chart) =>
+            Object.keys(chart.positions ?? {}).some((key) => /^(qb|rb|te|wr)$/i.test(key)),
+          ) ?? null;
+        if (offense) return offense;
+      } catch {
+        // Try the previous NFL season if this year's chart is missing.
+      }
+    }
+    return null;
   });
+}
+
+async function espnAthleteName(id: string): Promise<string> {
+  return cached(`espnAthleteName:${id}`, 24 * 60 * 60 * 1000, async () => {
+    const data = await espnJson<{ displayName?: string; fullName?: string }>(
+      `https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/athletes/${id}?lang=en&region=us`,
+    );
+    return data.displayName || data.fullName || `ESPN ${id}`;
+  });
+}
+
+function coreAthletes(
+  group:
+    | {
+        athletes?: Array<{ rank?: number; athlete?: { $ref?: string } }>;
+      }
+    | undefined,
+): CoreAthlete[] {
+  return (group?.athletes ?? [])
+    .map((row) => ({
+      id: athleteIdFromRef(row.athlete?.$ref) ?? "",
+      rank: Number(row.rank) || 0,
+    }))
+    .filter((row) => row.id)
+    .sort((a, b) => a.rank - b.rank || a.id.localeCompare(b.id));
 }
 
 export async function lookupDepth(player: Player): Promise<DepthSpot | null> {
   const abbr = espnAbbr(player.nflTeam);
   if (!abbr) return null;
-  const teams = await espnTeamIds();
-  const teamId = teams.get(abbr);
+  const teamId = ESPN_TEAM_IDS[abbr];
   if (!teamId) return null;
 
   const offense = await espnOffenseChart(teamId);
   if (!offense) return null;
 
-  type Hit = { slot: string; rank: number; athletes: Array<{ id?: string; displayName?: string }> };
-  let hit: Hit | null = null;
-  for (const [slot, group] of Object.entries(offense.positions ?? {})) {
-    const athletes = group.athletes ?? [];
-    const index = athletes.findIndex((athlete) => {
-      if (player.espnId && athlete.id && String(athlete.id) === player.espnId) return true;
-      return athlete.displayName ? namesMatch(athlete.displayName, player) : false;
-    });
+  const preferred = player.position.toLowerCase();
+  const slots = Object.entries(offense.positions ?? {}).sort(([a], [b]) => {
+    if (a === preferred) return -1;
+    if (b === preferred) return 1;
+    return a.localeCompare(b);
+  });
+
+  let hit: { slot: string; rank: number; athletes: CoreAthlete[] } | null = null;
+  for (const [slot, group] of slots) {
+    const athletes = coreAthletes(group);
+    const index = athletes.findIndex((athlete) => player.espnId && athlete.id === player.espnId);
     if (index >= 0) {
-      hit = { slot, rank: index + 1, athletes };
+      hit = { slot, rank: athletes[index].rank || index + 1, athletes };
       break;
+    }
+  }
+
+  if (!hit && !player.espnId) {
+    for (const [slot, group] of slots) {
+      if (!/^(qb|rb|te|wr)$/i.test(slot)) continue;
+      const athletes = coreAthletes(group).slice(0, 8);
+      const names = await Promise.all(athletes.map((athlete) => espnAthleteName(athlete.id)));
+      const index = names.findIndex((name) => namesMatch(name, player));
+      if (index >= 0) {
+        hit = { slot, rank: athletes[index].rank || index + 1, athletes };
+        break;
+      }
     }
   }
   if (!hit) return null;
 
-  const slot = hit.slot.toUpperCase();
-  const unit = hit.athletes.slice(0, 8).map((athlete, index) => ({
-    rank: index + 1,
-    name: athlete.displayName ?? "Unknown",
-    self: index + 1 === hit!.rank,
+  const shown = hit.athletes.slice(0, 8);
+  const names = await Promise.all(shown.map((athlete) => espnAthleteName(athlete.id).catch(() => `ESPN ${athlete.id}`)));
+  const slot = (offense.positions?.[hit.slot]?.position?.abbreviation || hit.slot).toUpperCase();
+  const unit = shown.map((athlete, index) => ({
+    rank: athlete.rank || index + 1,
+    name: names[index],
+    self: athlete.id === player.espnId || namesMatch(names[index], player),
   }));
   const ahead = unit.filter((row) => row.rank < hit!.rank).map((row) => row.name);
   const ordinal =
@@ -197,6 +280,32 @@ export async function fetchHeadlines(query: string, limit = 6): Promise<NewsItem
   return items;
 }
 
+export async function fetchEspnHeadlines(player: Player, limit = 6): Promise<NewsItem[]> {
+  if (!player.espnId) return fetchHeadlines(newsQuery(player, true), limit);
+  const cachedKey = `espnNews:${player.espnId}`;
+  const existing = getCached<NewsItem[]>(cachedKey);
+  if (existing && existing.length > 0) return existing;
+
+  const data = await espnJson<{
+    news?: Array<{
+      headline?: string;
+      type?: string;
+      links?: { web?: { href?: string }; mobile?: { href?: string } };
+    }>;
+  }>(`https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/athletes/${player.espnId}/overview`);
+  const items = (data.news ?? [])
+    .map((row) => ({
+      title: row.headline?.trim() ?? "",
+      url: row.links?.web?.href || row.links?.mobile?.href || "",
+      source: "ESPN",
+    }))
+    .filter((row) => row.title && row.url)
+    .slice(0, limit);
+  if (items.length > 0) setCached(cachedKey, items, 15 * 60 * 1000);
+  if (items.length > 0) return items;
+  return fetchHeadlines(newsQuery(player, true), limit);
+}
+
 export function newsQuery(player: Player, espnOnly = false) {
   const abbr = espnAbbr(player.nflTeam);
   if (espnOnly) return `"${player.name}" site:espn.com`;
@@ -208,7 +317,9 @@ export function newsLinks(player: Player) {
   const espn = newsQuery(player, true);
   return {
     googleNews: `https://news.google.com/search?q=${encodeURIComponent(google)}&hl=en-US&gl=US&ceid=US:en`,
-    espnNews: `https://www.espn.com/search/_/q/${encodeURIComponent(player.name)}`,
+    espnNews: player.espnId
+      ? `https://www.espn.com/nfl/player/news/_/id/${player.espnId}`
+      : `https://www.espn.com/search/_/q/${encodeURIComponent(player.name)}`,
     espnPlayer: player.espnId
       ? `https://www.espn.com/nfl/player/_/id/${player.espnId}`
       : `https://www.espn.com/search/_/q/${encodeURIComponent(player.name)}`,

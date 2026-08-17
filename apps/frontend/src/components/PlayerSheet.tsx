@@ -20,7 +20,17 @@ function RankRow({ label, overall, pos, playerPos }: { label: string; overall?: 
   );
 }
 
-function NewsList({ title, items, href }: { title: string; items: NewsItem[]; href: string }) {
+function NewsList({
+  title,
+  items,
+  href,
+  loading,
+}: {
+  title: string;
+  items: NewsItem[];
+  href: string;
+  loading: boolean;
+}) {
   return (
     <section>
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -29,7 +39,9 @@ function NewsList({ title, items, href }: { title: string; items: NewsItem[]; hr
           Open search
         </a>
       </div>
-      {items.length === 0 ? (
+      {loading ? (
+        <p className="text-[12px] text-mute">Loading headlines…</p>
+      ) : items.length === 0 ? (
         <p className="text-[12px] text-mute">No headlines loaded. Use Open search.</p>
       ) : (
         <ul className="space-y-2">
@@ -149,8 +161,18 @@ export function PlayerSheet({ player, onClose }: Props) {
             )}
           </section>
           <div className="space-y-5">
-            <NewsList title="Google News" items={card?.news.google ?? []} href={links.googleNews} />
-            <NewsList title="ESPN News" items={card?.news.espn ?? []} href={links.espnNews} />
+            <NewsList
+              title="Google News"
+              items={card?.news.google ?? []}
+              href={links.googleNews}
+              loading={!card && !errorText}
+            />
+            <NewsList
+              title="ESPN News"
+              items={card?.news.espn ?? []}
+              href={links.espnNews}
+              loading={!card && !errorText}
+            />
             <a href={links.espnPlayer} target="_blank" rel="noreferrer" className="inline-block text-[12px] text-gold hover:underline">
               ESPN player page
             </a>

@@ -1,6 +1,6 @@
 import { cachedOrStale } from "./cache.js";
 import { buildBootstrap, buildLive, rankedPlayers, type Player } from "./mfl.js";
-import { fetchHeadlines, lookupDepth, newsLinks, newsQuery } from "./playerCard.js";
+import { fetchEspnHeadlines, fetchHeadlines, lookupDepth, newsLinks, newsQuery } from "./playerCard.js";
 
 let playerIndexPromise: Promise<Map<string, Player>> | null = null;
 
@@ -40,7 +40,7 @@ export async function handlePlayer(id: string) {
   const [depth, google, espn] = await Promise.all([
     lookupDepth(player).catch(() => null),
     fetchHeadlines(newsQuery(player), 6).catch(() => []),
-    fetchHeadlines(newsQuery(player, true), 6).catch(() => []),
+    fetchEspnHeadlines(player, 6).catch(() => fetchHeadlines(newsQuery(player, true), 6).catch(() => [])),
   ]);
   return {
     player,

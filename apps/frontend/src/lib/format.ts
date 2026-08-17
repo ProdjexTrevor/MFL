@@ -20,7 +20,9 @@ export function playerNewsLinks(player: { name: string; nflTeam: string; espnId?
   const search = encodeURIComponent(player.name);
   return {
     googleNews: `https://news.google.com/search?q=${encodeURIComponent(google)}&hl=en-US&gl=US&ceid=US:en`,
-    espnNews: `https://www.espn.com/search/_/q/${search}`,
+    espnNews: player.espnId
+      ? `https://www.espn.com/nfl/player/news/_/id/${player.espnId}`
+      : `https://www.espn.com/search/_/q/${search}`,
     espnPlayer: player.espnId
       ? `https://www.espn.com/nfl/player/_/id/${player.espnId}`
       : `https://www.espn.com/search/_/q/${search}`,
