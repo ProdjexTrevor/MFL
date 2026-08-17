@@ -14,7 +14,8 @@ const cacheDir = process.env.VERCEL
   : join(dirname(fileURLToPath(import.meta.url)), "../.cache");
 
 function fileFor(key: string) {
-  return join(cacheDir, `${key}.json`);
+  const safe = key.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 120) || "cache";
+  return join(cacheDir, `${safe}.json`);
 }
 
 function readDisk<T>(key: string): CacheEntry<T> | undefined {

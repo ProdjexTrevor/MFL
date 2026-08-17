@@ -1,5 +1,8 @@
-import { cached } from "./cache.js";
+import { cached, getCached, setCached } from "./cache.js";
 import type { Player } from "./mfl.js";
+
+const BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 
 const MFL_TO_ESPN: Record<string, string> = {
   TBB: "TB",
@@ -36,7 +39,7 @@ function espnAbbr(mflTeam: string): string | null {
 
 async function espnJson<T>(url: string): Promise<T> {
   const res = await fetch(url, {
-    headers: { Accept: "application/json", "User-Agent": "OldBarLeagueDraftDash/1.0" },
+    headers: { Accept: "application/json", "User-Agent": BROWSER_UA },
   });
   if (!res.ok) throw new Error(`ESPN ${res.status}`);
   return (await res.json()) as T;
@@ -145,35 +148,53 @@ function decodeXml(value: string) {
     .replace(/&gt;/g, ">");
 }
 
+function itemLink(chunk: string): string | null {
+  const href = chunk.match(/<link[^>]*href="([^"]+)"/i);
+  if (href?.[1]) return decodeXml(href[1]);
+  const tagged = chunk.match(/<link>([\s\S]*?)<\/link>/i);
+  if (tagged?.[1]?.trim()) return decodeXml(tagged[1].trim());
+  const guid = chunk.match(/<guid[^>]*>([\s\S]*?)<\/guid>/i);
+  if (guid?.[1]?.trim()) return decodeXml(guid[1].trim());
+  return null;
+}
+
 export async function fetchHeadlines(query: string, limit = 6): Promise<NewsItem[]> {
-  return cached(`gnews:${query}`, 15 * 60 * 1000, async () => {
-    const url = new URL("https://news.google.com/rss/search");
-    url.searchParams.set("q", query);
-    url.searchParams.set("hl", "en-US");
-    url.searchParams.set("gl", "US");
-    url.searchParams.set("ceid", "US:en");
-    const res = await fetch(url, {
-      headers: { Accept: "application/rss+xml", "User-Agent": "OldBarLeagueDraftDash/1.0" },
-    });
-    if (!res.ok) return [];
-    const xml = await res.text();
-    const items: NewsItem[] = [];
-    const chunks = xml.split("<item>").slice(1);
-    for (const chunk of chunks) {
-      const titleMatch = chunk.match(/<title>([\s\S]*?)<\/title>/);
-      const linkMatch = chunk.match(/<link>([\s\S]*?)<\/link>/);
-      if (!titleMatch || !linkMatch) continue;
-      const title = decodeXml(titleMatch[1].trim());
-      const dash = title.lastIndexOf(" - ");
-      items.push({
-        title: dash > 0 ? title.slice(0, dash) : title,
-        source: dash > 0 ? title.slice(dash + 3) : undefined,
-        url: decodeXml(linkMatch[1].trim()),
-      });
-      if (items.length >= limit) break;
-    }
-    return items;
+  const cachedKey = `gnews:${query}`;
+  const existing = getCached<NewsItem[]>(cachedKey);
+  if (existing && existing.length > 0) return existing;
+
+  const url = new URL("https://news.google.com/rss/search");
+  url.searchParams.set("q", query);
+  url.searchParams.set("hl", "en-US");
+  url.searchParams.set("gl", "US");
+  url.searchParams.set("ceid", "US:en");
+  const res = await fetch(url, {
+    headers: {
+      Accept: "application/rss+xml, application/xml, text/xml;q=0.9,*/*;q=0.8",
+      "User-Agent": BROWSER_UA,
+    },
   });
+  if (!res.ok) return [];
+  const xml = await res.text();
+  const items: NewsItem[] = [];
+  const chunks = xml.split("<item>").slice(1);
+  for (const chunk of chunks) {
+    const titleMatch = chunk.match(/<title>([\s\S]*?)<\/title>/);
+    const urlMatch = itemLink(chunk);
+    if (!titleMatch || !urlMatch) continue;
+    const title = decodeXml(titleMatch[1].trim());
+    const dash = title.lastIndexOf(" - ");
+    items.push({
+      title: dash > 0 ? title.slice(0, dash) : title,
+      source: dash > 0 ? title.slice(dash + 3) : undefined,
+      url: urlMatch,
+    });
+    if (items.length >= limit) break;
+  }
+  if (items.length > 0) {
+    setCached(cachedKey, items, 15 * 60 * 1000);
+  }
+  return items;
 }
 
 export function newsQuery(player: Player, espnOnly = false) {

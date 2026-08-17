@@ -1,4 +1,4 @@
-import { handlePlayer } from "../apps/api/src/handlers.js";
+import { handlePlayer } from "../../apps/api/src/handlers.js";
 
 export default async function handler(
   req: { method?: string; query?: { id?: string | string[] }; url?: string },

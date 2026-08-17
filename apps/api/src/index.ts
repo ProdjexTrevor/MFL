@@ -50,7 +50,26 @@ app.get("/api/player/:id", async (req, res) => {
   } catch (err) {
     const status = (err as { status?: number }).status === 404 ? 404 : 502;
     console.error(err);
-    res.status(status).json({ error: err instanceof Error ? err.message : "Player lookup failed" });
+    res.status(status).json({
+      error: err instanceof Error ? err.message : "Player lookup failed",
+    });
+  }
+});
+
+app.get("/api/player", async (req, res) => {
+  try {
+    const id = String(req.query.id ?? "");
+    if (!id) {
+      res.status(400).json({ error: "Missing player id" });
+      return;
+    }
+    res.json(await handlePlayer(id));
+  } catch (err) {
+    const status = (err as { status?: number }).status === 404 ? 404 : 502;
+    console.error(err);
+    res.status(status).json({
+      error: err instanceof Error ? err.message : "Player lookup failed",
+    });
   }
 });
 

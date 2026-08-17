@@ -14,6 +14,19 @@ export function nflAbbr(team: string): string {
   return NFL[team] ?? team;
 }
 
+export function playerNewsLinks(player: { name: string; nflTeam: string; espnId?: string }) {
+  const team = nflAbbr(player.nflTeam);
+  const google = team !== "FA" ? `"${player.name}" ${team} NFL` : `"${player.name}" NFL`;
+  const search = encodeURIComponent(player.name);
+  return {
+    googleNews: `https://news.google.com/search?q=${encodeURIComponent(google)}&hl=en-US&gl=US&ceid=US:en`,
+    espnNews: `https://www.espn.com/search/_/q/${search}`,
+    espnPlayer: player.espnId
+      ? `https://www.espn.com/nfl/player/_/id/${player.espnId}`
+      : `https://www.espn.com/search/_/q/${search}`,
+  };
+}
+
 export function posClass(pos: string): string {
   switch (pos) {
     case "QB":

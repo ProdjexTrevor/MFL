@@ -3,12 +3,24 @@ import type { Bootstrap, Live, PlayerCard } from "./types";
 
 export const api = axios.create({ baseURL: "/api" });
 
-function unwrap(err: unknown): never {
+function errorText(err: unknown): string {
   if (axios.isAxiosError(err)) {
-    const body = err.response?.data as { error?: string } | undefined;
-    throw new Error(body?.error || err.message);
+    const body = err.response?.data as { error?: unknown } | string | undefined;
+    if (typeof body === "string" && body.trim()) return body.slice(0, 180);
+    const raw = body && typeof body === "object" ? body.error : undefined;
+    if (typeof raw === "string" && raw !== "[object Object]") return raw;
+    if (raw && typeof raw === "object") {
+      const message = (raw as { message?: unknown; $t?: unknown }).message ?? (raw as { $t?: unknown }).$t;
+      if (typeof message === "string") return message;
+    }
+    return err.message;
   }
-  throw err;
+  if (err instanceof Error) return err.message;
+  return "Request failed";
+}
+
+function unwrap(err: unknown): never {
+  throw new Error(errorText(err));
 }
 
 export async function getBootstrap(): Promise<Bootstrap> {
@@ -71,7 +83,7 @@ export async function saveSettings(myFranchiseId: string): Promise<void> {
 
 export async function getPlayerCard(playerId: string): Promise<PlayerCard> {
   try {
-    const { data } = await api.get<PlayerCard>(`/player/${playerId}`);
+    const { data } = await api.get<PlayerCard>(`/player`, { params: { id: playerId } });
     return data;
   } catch (err) {
     unwrap(err);

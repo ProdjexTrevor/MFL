@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { DepthSpot, NewsItem, Player, PlayerCard } from "../types";
 import { getPlayerCard } from "../api";
-import { nflAbbr, posClass, posRank } from "../lib/format";
+import { nflAbbr, playerNewsLinks, posClass, posRank } from "../lib/format";
 
 type Props = {
   player: Player;
@@ -97,6 +97,9 @@ export function PlayerSheet({ player, onClose }: Props) {
 
   const shown = card?.player ?? player;
   const team = nflAbbr(shown.nflTeam);
+  const links = card?.links ?? playerNewsLinks(shown);
+  const errorText =
+    error && error !== "[object Object]" ? error : error ? "Could not load ESPN extras" : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-3 min-[800px]:items-center">
@@ -137,17 +140,20 @@ export function PlayerSheet({ player, onClose }: Props) {
         <div className="mt-4 grid gap-6 min-[800px]:grid-cols-2">
           <section>
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-mute">ESPN depth chart</h3>
-            {card ? <DepthBlock depth={card.depth} /> : <p className="text-[12px] text-mute">Loading depth chart…</p>}
-            {error && <p className="mt-2 text-[12px] text-gold">{error}</p>}
+            {card ? (
+              <DepthBlock depth={card.depth} />
+            ) : errorText ? (
+              <p className="text-[12px] text-gold">{errorText}</p>
+            ) : (
+              <p className="text-[12px] text-mute">Loading depth chart…</p>
+            )}
           </section>
           <div className="space-y-5">
-            <NewsList title="Google News" items={card?.news.google ?? []} href={card?.links.googleNews ?? "#"} />
-            <NewsList title="ESPN News" items={card?.news.espn ?? []} href={card?.links.espnNews ?? "#"} />
-            {card?.links.espnPlayer && (
-              <a href={card.links.espnPlayer} target="_blank" rel="noreferrer" className="inline-block text-[12px] text-gold hover:underline">
-                ESPN player page
-              </a>
-            )}
+            <NewsList title="Google News" items={card?.news.google ?? []} href={links.googleNews} />
+            <NewsList title="ESPN News" items={card?.news.espn ?? []} href={links.espnNews} />
+            <a href={links.espnPlayer} target="_blank" rel="noreferrer" className="inline-block text-[12px] text-gold hover:underline">
+              ESPN player page
+            </a>
           </div>
         </div>
       </div>
