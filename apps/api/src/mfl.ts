@@ -34,6 +34,12 @@ export type Player = {
   nflTeam: string;
   adpRank?: number;
   adp?: number;
+  adpPosRank?: number;
+  sharksRank?: number;
+  sharksPosRank?: number;
+  rookiePosRank?: number;
+  isRookie?: boolean;
+  draftYear?: number;
 };
 
 export type Franchise = {
@@ -119,20 +125,35 @@ async function mflGet(
 }
 
 export async function fetchPlayers(): Promise<Player[]> {
-  return cached("players", 12 * 60 * 60 * 1000, async () => {
+  return cached("playersDetails", 12 * 60 * 60 * 1000, async () => {
     const data = (await mflGet("api.myfantasyleague.com", "export", {
       TYPE: "players",
+      DETAILS: "1",
     })) as {
-      players?: { player?: Array<{ id: string; name: string; position: string; team: string }> };
+      players?: {
+        player?: Array<{
+          id: string;
+          name: string;
+          position: string;
+          team: string;
+          draft_year?: string;
+        }>;
+      };
     };
+    const seasonYear = Number(YEAR);
     return asArray(data.players?.player)
       .filter((p) => SKILL_POS.has(p.position))
-      .map((p) => ({
-        id: String(p.id),
-        position: p.position,
-        nflTeam: p.team || "FA",
-        ...displayName(p.name),
-      }));
+      .map((p) => {
+        const draftYear = p.draft_year ? Number(p.draft_year) : undefined;
+        return {
+          id: String(p.id),
+          position: p.position,
+          nflTeam: p.team || "FA",
+          draftYear,
+          isRookie: draftYear === seasonYear,
+          ...displayName(p.name),
+        };
+      });
   });
 }
 
@@ -161,6 +182,74 @@ export async function fetchAdp(): Promise<Map<string, { rank: number; adp: numbe
     ] as [string, { rank: number; adp: number }]);
   });
   return new Map(Array.isArray(entries) ? entries : []);
+}
+
+export async function fetchSharksRanks(): Promise<Map<string, number>> {
+  const entries = await cached("sharksRanks", 6 * 60 * 60 * 1000, async () => {
+    await delay(1200);
+    const data = (await mflGet("api.myfantasyleague.com", "export", {
+      TYPE: "playerRanks",
+      SOURCE: "sharks",
+    })) as {
+      error?: { $t?: string };
+      player_ranks?: { player?: Array<{ id: string; rank: string }> };
+    };
+    if (data.error) return [];
+    return asArray(data.player_ranks?.player)
+      .map((row) => [String(row.id), Number(row.rank)] as [string, number])
+      .filter(([, rank]) => Number.isFinite(rank));
+  });
+  return new Map(Array.isArray(entries) ? entries : []);
+}
+
+function addPosRanks(
+  players: Player[],
+  overallOf: (player: Player) => number | undefined,
+  assign: (player: Player, posRank: number) => void,
+  include: (player: Player) => boolean = () => true,
+) {
+  const groups = new Map<string, Player[]>();
+  for (const player of players) {
+    if (!include(player) || overallOf(player) == null) continue;
+    const list = groups.get(player.position) ?? [];
+    list.push(player);
+    groups.set(player.position, list);
+  }
+  for (const list of groups.values()) {
+    list.sort((a, b) => (overallOf(a) ?? 9999) - (overallOf(b) ?? 9999));
+    list.forEach((player, index) => assign(player, index + 1));
+  }
+}
+
+export async function rankedPlayers(): Promise<Player[]> {
+  const players = await fetchPlayers();
+  const adp = await fetchAdp();
+  const sharks = await fetchSharksRanks();
+  const ranked = players.map((player) => {
+    const a = adp.get(player.id);
+    const sharksRank = sharks.get(player.id);
+    return {
+      ...player,
+      adpRank: a?.rank,
+      adp: a?.adp,
+      sharksRank,
+    };
+  });
+  addPosRanks(ranked, (p) => p.adpRank, (p, n) => {
+    p.adpPosRank = n;
+  });
+  addPosRanks(ranked, (p) => p.sharksRank, (p, n) => {
+    p.sharksPosRank = n;
+  });
+  addPosRanks(
+    ranked,
+    (p) => p.sharksRank ?? p.adpRank,
+    (p, n) => {
+      p.rookiePosRank = n;
+    },
+    (p) => p.isRookie === true,
+  );
+  return ranked;
 }
 
 export async function fetchLeague(): Promise<{
@@ -296,15 +385,10 @@ export async function fetchRosters(): Promise<Record<string, RosterSlot[]>> {
 }
 
 export async function buildBootstrap() {
-  const players = await fetchPlayers();
-  const adp = await fetchAdp();
+  const players = await rankedPlayers();
   await delay(1200);
   const league = await fetchLeague();
-  const withAdp = players.map((p) => {
-    const a = adp.get(p.id);
-    return a ? { ...p, adpRank: a.rank, adp: a.adp } : p;
-  });
-  return { league, players: withAdp };
+  return { league, players };
 }
 
 export async function buildLive(playerIndex: Map<string, Player>) {
@@ -326,6 +410,12 @@ export async function buildLive(playerIndex: Map<string, Player>) {
         nflTeam: player?.nflTeam ?? "",
         adpRank: player?.adpRank,
         adp: player?.adp,
+        adpPosRank: player?.adpPosRank,
+        sharksRank: player?.sharksRank,
+        sharksPosRank: player?.sharksPosRank,
+        rookiePosRank: player?.rookiePosRank,
+        isRookie: player?.isRookie,
+        draftYear: player?.draftYear,
         status: slot.status,
       };
     });

@@ -33,6 +33,30 @@ export const POSITIONS = ["QB", "RB", "WR", "TE"] as const;
 
 export type Position = (typeof POSITIONS)[number];
 
+export function posRank(pos: string, rank?: number): string {
+  if (!rank) return "";
+  return `${pos}${rank}`;
+}
+
+export function rankSources(player: {
+  position: string;
+  adpPosRank?: number;
+  sharksPosRank?: number;
+  rookiePosRank?: number;
+  isRookie?: boolean;
+}): string {
+  const parts: string[] = [];
+  const adp = posRank(player.position, player.adpPosRank);
+  const sharks = posRank(player.position, player.sharksPosRank);
+  if (adp) parts.push(`ADP ${adp}`);
+  if (sharks) parts.push(`SH ${sharks}`);
+  if (player.isRookie) {
+    const rookie = posRank(player.position, player.rookiePosRank);
+    parts.push(rookie ? `RK ${rookie}` : "RK");
+  }
+  return parts.join(" · ");
+}
+
 const TEAM_LABEL: Record<string, string> = {
   "0001": "Weasels",
   "0002": "Vince",

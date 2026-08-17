@@ -7,6 +7,12 @@ export type Player = {
   nflTeam: string;
   adpRank?: number;
   adp?: number;
+  adpPosRank?: number;
+  sharksRank?: number;
+  sharksPosRank?: number;
+  rookiePosRank?: number;
+  isRookie?: boolean;
+  draftYear?: number;
 };
 
 export type Franchise = {

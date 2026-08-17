@@ -1,5 +1,5 @@
 import type { DraftPick, Franchise } from "../types";
-import { nflAbbr, posClass, teamCode } from "../lib/format";
+import { nflAbbr, posClass, posRank, teamCode } from "../lib/format";
 
 type Props = {
   picks: DraftPick[];
@@ -66,7 +66,9 @@ export function DraftBoard({
                           <span
                             className={`${posClass(pick.player.position)} mt-1 inline-block rounded px-1 py-px text-[10px] font-semibold`}
                           >
-                            {pick.player.position} {nflAbbr(pick.player.nflTeam)}
+                            {posRank(pick.player.position, pick.player.adpPosRank) || pick.player.position}{" "}
+                            {nflAbbr(pick.player.nflTeam)}
+                            {pick.player.isRookie ? " RK" : ""}
                           </span>
                         </div>
                       ) : (

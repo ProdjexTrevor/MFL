@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Player } from "../types";
-import { POSITIONS, nflAbbr, posClass, type Position } from "../lib/format";
+import { POSITIONS, nflAbbr, posClass, posRank, rankSources, type Position } from "../lib/format";
 import { useStarredPlayers } from "../hooks/useStarredPlayers";
 
 type Props = {
@@ -44,6 +44,9 @@ export function AvailablePlayers({ players }: Props) {
     return rows.sort((a, b) => {
       const starDiff = Number(starred.has(b.id)) - Number(starred.has(a.id));
       if (starDiff !== 0) return starDiff;
+      if (pos !== "ALL" && pos !== "STARRED") {
+        return (a.adpPosRank ?? a.adpRank ?? 9999) - (b.adpPosRank ?? b.adpRank ?? 9999);
+      }
       return (a.adpRank ?? 9999) - (b.adpRank ?? 9999);
     });
   }, [players, pos, query, starred]);
@@ -59,7 +62,9 @@ export function AvailablePlayers({ players }: Props) {
           Available
         </h2>
         <p className="text-[11px] text-mute">
-          {filtered.length} undrafted · {starredCount} starred · ADP keep/10-team
+          {filtered.length} undrafted · {starredCount} starred
+          <br />
+          ADP = MFL keep/10 · SH = FantasySharks · RK = 2026 rookies
         </p>
       </div>
       <div className="space-y-2 border-b border-line px-3 py-2">
@@ -93,12 +98,12 @@ export function AvailablePlayers({ players }: Props) {
               <th className="px-2 py-1.5 font-medium">ADP</th>
               <th className="px-2 py-1.5 font-medium">Pos</th>
               <th className="px-2 py-1.5 font-medium">Player</th>
-              <th className="px-2 py-1.5 font-medium">NFL</th>
             </tr>
           </thead>
           <tbody>
             {shown.map((p) => {
               const isStarred = starred.has(p.id);
+              const sources = rankSources(p);
               return (
                 <tr key={p.id} className="border-t border-line/70 hover:bg-[#1b2722]">
                   <td className="px-1 py-1">
@@ -117,11 +122,21 @@ export function AvailablePlayers({ players }: Props) {
                   </td>
                   <td className="px-2 py-1.5">
                     <span className={`${posClass(p.position)} rounded px-1 text-[10px] font-semibold`}>
-                      {p.position}
+                      {posRank(p.position, p.adpPosRank) || p.position}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 font-medium">{p.name}</td>
-                  <td className="px-2 py-1.5 text-mute">{nflAbbr(p.nflTeam)}</td>
+                  <td className="px-2 py-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-medium">{p.name}</span>
+                      {p.isRookie && (
+                        <span className="rounded bg-gold/20 px-1 text-[9px] font-semibold text-gold">RK</span>
+                      )}
+                    </div>
+                    <p className="text-[10px] leading-tight text-mute">
+                      {nflAbbr(p.nflTeam)}
+                      {sources ? ` · ${sources}` : ""}
+                    </p>
+                  </td>
                 </tr>
               );
             })}

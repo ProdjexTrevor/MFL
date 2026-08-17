@@ -1,5 +1,5 @@
 import type { DraftPick, Franchise, RosterPlayer } from "../types";
-import { POSITIONS, nflAbbr, posClass, teamLabel } from "../lib/format";
+import { POSITIONS, nflAbbr, posClass, posRank, teamLabel } from "../lib/format";
 
 const STARTER_FLOOR: Record<string, number> = { QB: 1, RB: 2, WR: 3, TE: 1 };
 
@@ -64,8 +64,13 @@ function TeamBlock({
             <span className={`${posClass(p.position)} w-8 rounded text-center text-[10px] font-semibold`}>
               {p.position}
             </span>
-            <span className="min-w-0 flex-1 truncate text-[13px]">{p.name}</span>
-            <span className="text-[11px] text-mute">{nflAbbr(p.nflTeam)}</span>
+            <span className="min-w-0 flex-1 truncate text-[13px]">
+              {p.name}
+              {p.isRookie ? <span className="ml-1 text-[9px] font-semibold text-gold">RK</span> : null}
+            </span>
+            <span className="text-[11px] tabular-nums text-mute">
+              {posRank(p.position, p.adpPosRank) || nflAbbr(p.nflTeam)}
+            </span>
           </li>
         ))}
       </ul>
