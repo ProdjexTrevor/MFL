@@ -9,6 +9,7 @@ type Props = {
   myTeam: string;
   current: DraftPick | null;
   upcoming: DraftPick[];
+  onSelectPlayer: (id: string) => void;
 };
 
 function counts(roster: RosterPlayer[] = []) {
@@ -24,11 +25,13 @@ function TeamBlock({
   hint,
   franchise,
   roster,
+  onSelectPlayer,
 }: {
   title: string;
   hint?: string;
   franchise?: Franchise;
   roster: RosterPlayer[];
+  onSelectPlayer: (id: string) => void;
 }) {
   const tally = counts(roster);
   const ordered = [...roster].sort((a, b) => {
@@ -60,7 +63,12 @@ function TeamBlock({
       </div>
       <ul className="px-2 py-2">
         {ordered.map((p) => (
-          <li key={p.id} className="flex items-center gap-2 rounded px-2 py-1 hover:bg-[#1b2722]">
+          <li key={p.id}>
+            <button
+              type="button"
+              onClick={() => onSelectPlayer(p.id)}
+              className="flex w-full items-center gap-2 rounded px-2 py-1 text-left hover:bg-[#1b2722]"
+            >
             <span className={`${posClass(p.position)} w-8 rounded text-center text-[10px] font-semibold`}>
               {p.position}
             </span>
@@ -71,6 +79,7 @@ function TeamBlock({
             <span className="text-[11px] tabular-nums text-mute">
               {posRank(p.position, p.adpPosRank) || nflAbbr(p.nflTeam)}
             </span>
+            </button>
           </li>
         ))}
       </ul>
@@ -78,7 +87,7 @@ function TeamBlock({
   );
 }
 
-export function TeamPanel({ franchises, rosters, myTeam, current, upcoming }: Props) {
+export function TeamPanel({ franchises, rosters, myTeam, current, upcoming, onSelectPlayer }: Props) {
   const byId = new Map(franchises.map((f) => [f.id, f]));
   const clockId = current?.franchiseId ?? "";
   const showMine = myTeam && myTeam !== clockId;
@@ -103,6 +112,7 @@ export function TeamPanel({ franchises, rosters, myTeam, current, upcoming }: Pr
         franchise={byId.get(clockId)}
         roster={rosters[clockId] ?? []}
         hint="Gold ring = below starter floor"
+        onSelectPlayer={onSelectPlayer}
       />
       {showMine && (
         <>
@@ -111,6 +121,7 @@ export function TeamPanel({ franchises, rosters, myTeam, current, upcoming }: Pr
             title="My roster"
             franchise={byId.get(myTeam)}
             roster={rosters[myTeam] ?? []}
+            onSelectPlayer={onSelectPlayer}
           />
         </>
       )}

@@ -4,7 +4,7 @@ import express from "express";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { handleBootstrap, handleHealth, handleLive } from "./handlers.js";
+import { handleBootstrap, handleHealth, handleLive, handlePlayer } from "./handlers.js";
 import {
   DatabaseUnavailableError,
   getMyFranchiseId,
@@ -41,6 +41,16 @@ app.get("/api/live", async (_req, res) => {
   } catch (err) {
     console.error(err);
     res.status(502).json({ error: err instanceof Error ? err.message : "Live fetch failed" });
+  }
+});
+
+app.get("/api/player/:id", async (req, res) => {
+  try {
+    res.json(await handlePlayer(String(req.params.id)));
+  } catch (err) {
+    const status = (err as { status?: number }).status === 404 ? 404 : 502;
+    console.error(err);
+    res.status(status).json({ error: err instanceof Error ? err.message : "Player lookup failed" });
   }
 });
 

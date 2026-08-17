@@ -40,6 +40,9 @@ export type Player = {
   rookiePosRank?: number;
   isRookie?: boolean;
   draftYear?: number;
+  espnId?: string;
+  jersey?: string;
+  college?: string;
 };
 
 export type Franchise = {
@@ -125,7 +128,7 @@ async function mflGet(
 }
 
 export async function fetchPlayers(): Promise<Player[]> {
-  return cached("playersDetails", 12 * 60 * 60 * 1000, async () => {
+  return cached("playersCard", 12 * 60 * 60 * 1000, async () => {
     const data = (await mflGet("api.myfantasyleague.com", "export", {
       TYPE: "players",
       DETAILS: "1",
@@ -137,6 +140,9 @@ export async function fetchPlayers(): Promise<Player[]> {
           position: string;
           team: string;
           draft_year?: string;
+          espn_id?: string;
+          jersey?: string;
+          college?: string;
         }>;
       };
     };
@@ -151,6 +157,9 @@ export async function fetchPlayers(): Promise<Player[]> {
           nflTeam: p.team || "FA",
           draftYear,
           isRookie: draftYear === seasonYear,
+          espnId: p.espn_id ? String(p.espn_id) : undefined,
+          jersey: p.jersey || undefined,
+          college: p.college || undefined,
           ...displayName(p.name),
         };
       });
@@ -416,6 +425,9 @@ export async function buildLive(playerIndex: Map<string, Player>) {
         rookiePosRank: player?.rookiePosRank,
         isRookie: player?.isRookie,
         draftYear: player?.draftYear,
+        espnId: player?.espnId,
+        jersey: player?.jersey,
+        college: player?.college,
         status: slot.status,
       };
     });

@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { Bootstrap, Live } from "./types";
+import type { Bootstrap, Live, PlayerCard } from "./types";
 
 export const api = axios.create({ baseURL: "/api" });
 
@@ -67,4 +67,13 @@ export async function getSettings(): Promise<{ myFranchiseId: string } | null> {
 
 export async function saveSettings(myFranchiseId: string): Promise<void> {
   await api.put("/settings", { myFranchiseId });
+}
+
+export async function getPlayerCard(playerId: string): Promise<PlayerCard> {
+  try {
+    const { data } = await api.get<PlayerCard>(`/player/${playerId}`);
+    return data;
+  } catch (err) {
+    unwrap(err);
+  }
 }

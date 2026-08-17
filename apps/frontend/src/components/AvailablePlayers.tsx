@@ -5,6 +5,7 @@ import { useStarredPlayers } from "../hooks/useStarredPlayers";
 
 type Props = {
   players: Player[];
+  onSelect: (player: Player) => void;
 };
 
 type Filter = Position | "ALL" | "STARRED";
@@ -24,7 +25,7 @@ function StarIcon({ filled }: { filled: boolean }) {
   );
 }
 
-export function AvailablePlayers({ players }: Props) {
+export function AvailablePlayers({ players, onSelect }: Props) {
   const [query, setQuery] = useState("");
   const [pos, setPos] = useState<Filter>("ALL");
   const { starred, toggleStar } = useStarredPlayers();
@@ -105,11 +106,18 @@ export function AvailablePlayers({ players }: Props) {
               const isStarred = starred.has(p.id);
               const sources = rankSources(p);
               return (
-                <tr key={p.id} className="border-t border-line/70 hover:bg-[#1b2722]">
+                <tr
+                  key={p.id}
+                  className="cursor-pointer border-t border-line/70 hover:bg-[#1b2722]"
+                  onClick={() => onSelect(p)}
+                >
                   <td className="px-1 py-1">
                     <button
                       type="button"
-                      onClick={() => toggleStar(p.id)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        toggleStar(p.id);
+                      }}
                       aria-pressed={isStarred}
                       aria-label={isStarred ? `Unstar ${p.name}` : `Star ${p.name}`}
                       className={`rounded p-1 ${isStarred ? "text-gold" : "text-mute hover:text-ink"}`}

@@ -1,4 +1,4 @@
-import type { DraftPick, Franchise } from "../types";
+import type { DraftPick, Franchise, Player } from "../types";
 import { nflAbbr, posClass, posRank, teamCode } from "../lib/format";
 
 type Props = {
@@ -7,6 +7,7 @@ type Props = {
   myTeam: string;
   currentOverall: number | null;
   justPickedId: string | null;
+  onSelect: (player: Player) => void;
 };
 
 export function DraftBoard({
@@ -15,6 +16,7 @@ export function DraftBoard({
   myTeam,
   currentOverall,
   justPickedId,
+  onSelect,
 }: Props) {
   const byId = new Map(franchises.map((f) => [f.id, f]));
   const rounds = Array.from(new Set(picks.map((p) => p.round))).sort((a, b) => a - b);
@@ -56,7 +58,7 @@ export function DraftBoard({
                         <span className="truncate">{teamCode(pick.franchiseId, team?.abbrev)}</span>
                       </div>
                       {pick.player ? (
-                        <div className="mt-1">
+                        <button type="button" className="mt-1 w-full text-left" onClick={() => onSelect(pick.player!)}>
                           <p className="truncate text-[13px] font-semibold leading-tight">
                             {pick.player.lastName || pick.player.name}
                           </p>
@@ -70,7 +72,7 @@ export function DraftBoard({
                             {nflAbbr(pick.player.nflTeam)}
                             {pick.player.isRookie ? " RK" : ""}
                           </span>
-                        </div>
+                        </button>
                       ) : (
                         <p className={`mt-3 text-xs ${isCurrent ? "text-gold" : "text-mute"}`}>
                           {isCurrent ? "On the clock" : "—"}

@@ -1,12 +1,16 @@
+import { useState } from "react";
+import type { Player } from "./types";
 import { Header } from "./components/Header";
 import { DraftBoard } from "./components/DraftBoard";
 import { AvailablePlayers } from "./components/AvailablePlayers";
 import { TeamPanel } from "./components/TeamPanel";
+import { PlayerSheet } from "./components/PlayerSheet";
 import { useDraftData } from "./hooks/useDraftData";
 
 export default function App() {
-  const { bootstrap, live, loading, error, myTeam, setMyTeam, available, justPickedId } =
+  const { bootstrap, live, loading, error, myTeam, setMyTeam, available, playerById, justPickedId } =
     useDraftData();
+  const [selected, setSelected] = useState<Player | null>(null);
 
   if (loading && !bootstrap) {
     return (
@@ -54,13 +58,14 @@ export default function App() {
         </div>
       )}
       <main className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-auto p-3 min-[800px]:grid-cols-[260px_minmax(0,1fr)_280px] min-[800px]:overflow-hidden">
-        <AvailablePlayers players={available} />
+        <AvailablePlayers players={available} onSelect={setSelected} />
         <DraftBoard
           picks={live?.picks ?? []}
           franchises={bootstrap.league.franchises}
           myTeam={myTeam}
           currentOverall={current?.overall ?? null}
           justPickedId={justPickedId}
+          onSelect={setSelected}
         />
         <TeamPanel
           franchises={bootstrap.league.franchises}
@@ -68,8 +73,13 @@ export default function App() {
           myTeam={myTeam}
           current={current}
           upcoming={upcoming}
+          onSelectPlayer={(id) => {
+            const next = playerById.get(id);
+            if (next) setSelected(next);
+          }}
         />
       </main>
+      {selected && <PlayerSheet player={selected} onClose={() => setSelected(null)} />}
     </div>
   );
 }

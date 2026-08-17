@@ -13,6 +13,33 @@ export type Player = {
   rookiePosRank?: number;
   isRookie?: boolean;
   draftYear?: number;
+  espnId?: string;
+  jersey?: string;
+  college?: string;
+};
+
+export type NewsItem = { title: string; url: string; source?: string };
+
+export type DepthSpot = {
+  team: string;
+  chart: string;
+  slot: string;
+  rank: number;
+  label: string;
+  ahead: string[];
+  unit: Array<{ rank: number; name: string; self: boolean }>;
+};
+
+export type PlayerCard = {
+  player: Player;
+  depth: DepthSpot | null;
+  news: { google: NewsItem[]; espn: NewsItem[] };
+  links: {
+    googleNews: string;
+    espnNews: string;
+    espnPlayer: string;
+    espnSearch: string;
+  };
 };
 
 export type Franchise = {
