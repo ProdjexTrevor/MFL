@@ -4,6 +4,8 @@ type Props = {
   league: League;
   myTeam: string;
   onMyTeam: (id: string) => void;
+  rosterDock: "side" | "bottom";
+  onRosterDock: (dock: "side" | "bottom") => void;
   current: DraftPick | null;
   picksMade: number;
   picksTotal: number;
@@ -14,6 +16,8 @@ export function Header({
   league,
   myTeam,
   onMyTeam,
+  rosterDock,
+  onRosterDock,
   current,
   picksMade,
   picksTotal,
@@ -45,6 +49,18 @@ export function Header({
                   {f.name}
                 </option>
               ))}
+            </select>
+          </label>
+          <label className="text-xs text-mute">
+            Roster
+            <select
+              className="select-dark ml-2 rounded px-2 py-1.5 text-sm"
+              value={rosterDock}
+              disabled={!myTeam}
+              onChange={(e) => onRosterDock(e.target.value === "bottom" ? "bottom" : "side")}
+            >
+              <option value="side">Side panel</option>
+              <option value="bottom">Across bottom</option>
             </select>
           </label>
           <span className="inline-flex items-center gap-2 rounded-full border border-line px-3 py-1 text-xs">

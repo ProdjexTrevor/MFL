@@ -4,13 +4,29 @@ import { Header } from "./components/Header";
 import { DraftBoard } from "./components/DraftBoard";
 import { AvailablePlayers } from "./components/AvailablePlayers";
 import { TeamPanel } from "./components/TeamPanel";
+import { MyRosterBar } from "./components/MyRosterBar";
 import { PlayerSheet } from "./components/PlayerSheet";
 import { useDraftData } from "./hooks/useDraftData";
+
+const ROSTER_DOCK_KEY = "obl-roster-dock";
 
 export default function App() {
   const { bootstrap, live, loading, error, myTeam, setMyTeam, available, playerById, justPickedId } =
     useDraftData();
   const [selected, setSelected] = useState<Player | null>(null);
+  const [rosterDock, setRosterDock] = useState<"side" | "bottom">(() =>
+    localStorage.getItem(ROSTER_DOCK_KEY) === "bottom" ? "bottom" : "side",
+  );
+
+  function onRosterDock(dock: "side" | "bottom") {
+    setRosterDock(dock);
+    localStorage.setItem(ROSTER_DOCK_KEY, dock);
+  }
+
+  const openPlayer = (id: string) => {
+    const next = playerById.get(id);
+    if (next) setSelected(next);
+  };
 
   if (loading && !bootstrap) {
     return (
@@ -47,6 +63,8 @@ export default function App() {
         league={bootstrap.league}
         myTeam={myTeam}
         onMyTeam={setMyTeam}
+        rosterDock={rosterDock}
+        onRosterDock={onRosterDock}
         current={current}
         picksMade={live?.picksMade ?? 0}
         picksTotal={live?.picksTotal ?? 40}
@@ -73,12 +91,19 @@ export default function App() {
           myTeam={myTeam}
           current={current}
           upcoming={upcoming}
-          onSelectPlayer={(id) => {
-            const next = playerById.get(id);
-            if (next) setSelected(next);
-          }}
+          hideMyRoster={rosterDock === "bottom"}
+          onExpandRoster={() => onRosterDock("bottom")}
+          onSelectPlayer={openPlayer}
         />
       </main>
+      {rosterDock === "bottom" && myTeam && (
+        <MyRosterBar
+          franchise={bootstrap.league.franchises.find((team) => team.id === myTeam)}
+          roster={live?.rosters[myTeam] ?? []}
+          onSelectPlayer={openPlayer}
+          onDockSide={() => onRosterDock("side")}
+        />
+      )}
       {selected && <PlayerSheet player={selected} onClose={() => setSelected(null)} />}
     </div>
   );

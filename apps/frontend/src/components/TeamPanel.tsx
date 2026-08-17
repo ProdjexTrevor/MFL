@@ -9,6 +9,8 @@ type Props = {
   myTeam: string;
   current: DraftPick | null;
   upcoming: DraftPick[];
+  hideMyRoster?: boolean;
+  onExpandRoster?: () => void;
   onSelectPlayer: (id: string) => void;
 };
 
@@ -87,10 +89,19 @@ function TeamBlock({
   );
 }
 
-export function TeamPanel({ franchises, rosters, myTeam, current, upcoming, onSelectPlayer }: Props) {
+export function TeamPanel({
+  franchises,
+  rosters,
+  myTeam,
+  current,
+  upcoming,
+  hideMyRoster,
+  onExpandRoster,
+  onSelectPlayer,
+}: Props) {
   const byId = new Map(franchises.map((f) => [f.id, f]));
   const clockId = current?.franchiseId ?? "";
-  const showMine = myTeam && myTeam !== clockId;
+  const showMine = Boolean(myTeam && myTeam !== clockId && !hideMyRoster);
 
   return (
     <section className="flex min-h-[280px] min-w-0 flex-col rounded-lg border border-line bg-panel min-[800px]:min-h-0">
@@ -123,6 +134,13 @@ export function TeamPanel({ franchises, rosters, myTeam, current, upcoming, onSe
             roster={rosters[myTeam] ?? []}
             onSelectPlayer={onSelectPlayer}
           />
+          {onExpandRoster && (
+            <div className="border-t border-line px-4 py-2">
+              <button type="button" onClick={onExpandRoster} className="text-[11px] text-gold hover:underline">
+                Expand across bottom
+              </button>
+            </div>
+          )}
         </>
       )}
     </section>
