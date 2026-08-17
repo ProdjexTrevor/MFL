@@ -3,14 +3,30 @@ import type { Bootstrap, Live } from "./types";
 
 export const api = axios.create({ baseURL: "/api" });
 
+function unwrap(err: unknown): never {
+  if (axios.isAxiosError(err)) {
+    const body = err.response?.data as { error?: string } | undefined;
+    throw new Error(body?.error || err.message);
+  }
+  throw err;
+}
+
 export async function getBootstrap(): Promise<Bootstrap> {
-  const { data } = await api.get<Bootstrap>("/bootstrap");
-  return data;
+  try {
+    const { data } = await api.get<Bootstrap>("/bootstrap");
+    return data;
+  } catch (err) {
+    unwrap(err);
+  }
 }
 
 export async function getLive(): Promise<Live> {
-  const { data } = await api.get<Live>("/live");
-  return data;
+  try {
+    const { data } = await api.get<Live>("/live");
+    return data;
+  } catch (err) {
+    unwrap(err);
+  }
 }
 
 export async function getStars(): Promise<string[] | null> {

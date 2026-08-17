@@ -22,9 +22,11 @@ export default function App() {
         <div>
           <p className="text-lg font-semibold">Could not reach the draft API</p>
           <p className="mt-2 text-sm text-mute">{error}</p>
-          <p className="mt-4 text-sm text-mute">
-            Start both apps from the repo root with <code className="text-gold">pnpm dev</code>
-          </p>
+          {(error.includes("Network Error") || error.includes("ECONNREFUSED")) && (
+            <p className="mt-4 text-sm text-mute">
+              Start both apps from the repo root with <code className="text-gold">pnpm dev</code>
+            </p>
+          )}
         </div>
       </div>
     );

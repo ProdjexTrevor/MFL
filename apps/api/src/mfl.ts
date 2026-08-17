@@ -9,6 +9,18 @@ const APIKEY = process.env.MFL_APIKEY ?? "";
 
 const SKILL_POS = new Set(["QB", "RB", "WR", "TE"]);
 
+let cooldownUntil = 0;
+let requestQueue: Promise<unknown> = Promise.resolve();
+
+function enqueue<T>(fn: () => Promise<T>): Promise<T> {
+  const run = requestQueue.then(fn, fn);
+  requestQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
 export type Player = {
   id: string;
   name: string;
@@ -63,20 +75,41 @@ async function mflGet(
   command: string,
   params: Record<string, string>,
 ): Promise<unknown> {
-  const url = new URL(`https://${host}/${YEAR}/${command}`);
-  for (const [key, value] of Object.entries(params)) {
-    if (value) url.searchParams.set(key, value);
-  }
-  url.searchParams.set("JSON", "1");
-  if (APIKEY) url.searchParams.set("APIKEY", APIKEY);
+  return enqueue(async () => {
+    const url = new URL(`https://${host}/${YEAR}/${command}`);
+    for (const [key, value] of Object.entries(params)) {
+      if (value) url.searchParams.set(key, value);
+    }
+    url.searchParams.set("JSON", "1");
+    if (APIKEY) url.searchParams.set("APIKEY", APIKEY);
 
-  const res = await fetch(url, {
-    headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const wait = cooldownUntil - Date.now();
+      if (wait > 0) await delay(wait);
+
+      const res = await fetch(url, {
+        headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+      });
+      if (res.status === 429) {
+        const retryAfter = Number(res.headers.get("retry-after"));
+        const backoff =
+          Number.isFinite(retryAfter) && retryAfter > 0
+            ? retryAfter * 1000
+            : 8000 * 2 ** attempt;
+        cooldownUntil = Date.now() + backoff;
+        if (attempt === 3) {
+          throw new Error(`MFL is rate-limiting requests. Retry in ${Math.ceil(backoff / 1000)}s`);
+        }
+        await delay(backoff);
+        continue;
+      }
+      if (!res.ok) {
+        throw new Error(`MFL ${command} ${res.status} ${res.statusText}`);
+      }
+      return res.json();
+    }
+    throw new Error("MFL request failed after retries");
   });
-  if (!res.ok) {
-    throw new Error(`MFL ${command} ${res.status} ${res.statusText}`);
-  }
-  return res.json();
 }
 
 export async function fetchPlayers(): Promise<Player[]> {
@@ -98,8 +131,8 @@ export async function fetchPlayers(): Promise<Player[]> {
 }
 
 export async function fetchAdp(): Promise<Map<string, { rank: number; adp: number }>> {
-  return cached("adp", 60 * 60 * 1000, async () => {
-    await delay(400);
+  const entries = await cached("adp", 60 * 60 * 1000, async () => {
+    await delay(1200);
     const data = (await mflGet("api.myfantasyleague.com", "export", {
       TYPE: "adp",
       FRANCHISES: "10",
@@ -116,15 +149,12 @@ export async function fetchAdp(): Promise<Map<string, { rank: number; adp: numbe
       })) as { adp?: { player?: Array<{ id: string; rank: string; averagePick: string }> } };
       rows = asArray(fallback.adp?.player);
     }
-    const map = new Map<string, { rank: number; adp: number }>();
-    for (const row of rows) {
-      map.set(String(row.id), {
-        rank: Number(row.rank),
-        adp: Number(row.averagePick),
-      });
-    }
-    return map;
+    return rows.map((row) => [
+      String(row.id),
+      { rank: Number(row.rank), adp: Number(row.averagePick) },
+    ] as [string, { rank: number; adp: number }]);
   });
+  return new Map(Array.isArray(entries) ? entries : []);
 }
 
 export async function fetchLeague(): Promise<{
@@ -262,7 +292,7 @@ export async function fetchRosters(): Promise<Record<string, RosterSlot[]>> {
 export async function buildBootstrap() {
   const players = await fetchPlayers();
   const adp = await fetchAdp();
-  await delay(400);
+  await delay(1200);
   const league = await fetchLeague();
   const withAdp = players.map((p) => {
     const a = adp.get(p.id);
@@ -273,7 +303,7 @@ export async function buildBootstrap() {
 
 export async function buildLive(playerIndex: Map<string, Player>) {
   const draft = await fetchDraft();
-  await delay(600);
+  await delay(1200);
   const rostersRaw = await fetchRosters();
   const currentPick = draft.picks.find((p) => !p.playerId) ?? null;
   const picksMade = draft.picks.filter((p) => p.playerId).length;

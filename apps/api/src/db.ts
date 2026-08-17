@@ -21,3 +21,4 @@ export const sql = createClient();
 export function leagueId(): string {
   return process.env.MFL_LEAGUE_ID ?? "49177";
 }
+

@@ -68,11 +68,13 @@ export function useDraftData() {
   }, [refreshLive]);
 
   useEffect(() => {
-    const id = window.setInterval(() => {
+    const tick = () => {
+      if (document.hidden) return;
       refreshLive().catch((err: unknown) => {
         setError(err instanceof Error ? err.message : "Live update failed");
       });
-    }, 5000);
+    };
+    const id = window.setInterval(tick, 12_000);
     return () => window.clearInterval(id);
   }, [refreshLive]);
 

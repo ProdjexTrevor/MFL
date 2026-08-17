@@ -1,0 +1,10 @@
+---
+description: Always push app changes to GitHub so Vercel deploys
+alwaysApply: true
+---
+
+# Always deploy to Vercel
+
+After finishing app changes in this repo, commit (unless only secrets changed) and `git push origin` to `main` so Vercel redeploys. Do not wait to be asked.
+
+Never commit `apps/api/.env`, passwords, or real `DATABASE_URL` values. Keep those in the gitignored local env file and in the Vercel project environment variables.
