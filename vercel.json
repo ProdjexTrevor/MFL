@@ -3,6 +3,7 @@
   "framework": null,
   "installCommand": "pnpm install",
   "buildCommand": "pnpm --filter @mfl/web build && node scripts/sync-web-dist.mjs",
+  "ignoreCommand": "exit 1",
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
