@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Segoe UI", "Helvetica Neue", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Segoe UI Semibold", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --color-ink: #e8edde;
+  --color-mute: #9aa394;
+  --color-bg: #0b1210;
+  --color-panel: #121a17;
+  --color-panel-2: #18221e;
+  --color-line: #243029;
+  --color-gold: #e0b44a;
+  --color-gold-dim: #8a6d24;
+  --color-live: #3ecf8e;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+.pos-qb {
+  color: #8ec8ff;
+  background: #17324a;
+}
+.pos-rb {
+  color: #8ef0c2;
+  background: #16382c;
+}
+.pos-wr {
+  color: #ffd27a;
+  background: #3a2d12;
+}
+.pos-te {
+  color: #e4b7ff;
+  background: #352247;
+}
+.pos-other {
+  color: #c8c8c8;
+  background: #2a2a2a;
+}
+
+.cell-flash {
+  animation: flashPick 1.6s ease-out;
+}
+
+@keyframes flashPick {
+  0% {
+    box-shadow: inset 0 0 0 1px #e0b44a;
+    background: #3a3210;
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+
+.select-dark {
+  background: #18221e;
+  color: var(--color-ink);
+  border: 1px solid var(--color-line);
+}
+
+.select-dark option {
+  background: #121a17;
+}
+
+input[type="search"]::-webkit-search-cancel-button {
+  filter: invert(1);
+}
