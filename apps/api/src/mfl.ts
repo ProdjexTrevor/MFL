@@ -1,11 +1,15 @@
 import { cached, delay } from "./cache.js";
 
-const YEAR = process.env.MFL_YEAR ?? "2026";
-const LEAGUE_ID = process.env.MFL_LEAGUE_ID ?? "49177";
-const HOST = process.env.MFL_HOST ?? "www44.myfantasyleague.com";
-const USER_AGENT =
-  process.env.MFL_USER_AGENT ?? "OldBarLeagueDraftDash/1.0 (personal; league 49177)";
-const APIKEY = process.env.MFL_APIKEY ?? "";
+function envValue(name: string, fallback: string) {
+  const value = process.env[name]?.trim();
+  return value ? value : fallback;
+}
+
+const YEAR = envValue("MFL_YEAR", "2026");
+const LEAGUE_ID = envValue("MFL_LEAGUE_ID", "49177");
+const HOST = envValue("MFL_HOST", "www44.myfantasyleague.com");
+const USER_AGENT = envValue("MFL_USER_AGENT", "OldBarLeagueDraftDash/1.0 (personal; league 49177)");
+const APIKEY = process.env.MFL_APIKEY?.trim() ?? "";
 
 const SKILL_POS = new Set(["QB", "RB", "WR", "TE"]);
 
@@ -104,7 +108,9 @@ async function mflGet(
         continue;
       }
       if (!res.ok) {
-        throw new Error(`MFL ${command} ${res.status} ${res.statusText}`);
+        const debug = new URL(url);
+        debug.searchParams.delete("APIKEY");
+        throw new Error(`MFL ${command} ${res.status} ${res.statusText} for ${debug.pathname}`);
       }
       return res.json();
     }

@@ -19,6 +19,6 @@ function createClient() {
 export const sql = createClient();
 
 export function leagueId(): string {
-  return process.env.MFL_LEAGUE_ID ?? "49177";
+  return process.env.MFL_LEAGUE_ID?.trim() || "49177";
 }
 
