@@ -2,6 +2,14 @@ import "dotenv/config";
 import cors from "cors";
 import express from "express";
 import { handleBootstrap, handleHealth, handleLive } from "./handlers.js";
+import {
+  DatabaseUnavailableError,
+  getMyFranchiseId,
+  listStarredPlayerIds,
+  replaceStarredPlayers,
+  setMyFranchiseId,
+  setStarredPlayer,
+} from "./store.js";
 
 const app = express();
 app.use(cors());
@@ -30,6 +38,69 @@ app.get("/api/live", async (_req, res) => {
   } catch (err) {
     console.error(err);
     res.status(502).json({ error: err instanceof Error ? err.message : "Live fetch failed" });
+  }
+});
+
+app.get("/api/stars", async (_req, res) => {
+  try {
+    res.json({ playerIds: await listStarredPlayerIds() });
+  } catch (err) {
+    const status = err instanceof DatabaseUnavailableError ? 503 : 500;
+    res.status(status).json({
+      error: err instanceof Error ? err.message : "Stars request failed",
+      playerIds: [],
+    });
+  }
+});
+
+app.post("/api/stars", async (req, res) => {
+  try {
+    const { playerId, starred } = req.body ?? {};
+    if (!playerId || typeof starred !== "boolean") {
+      res.status(400).json({ error: "Invalid stars request" });
+      return;
+    }
+    res.json({ playerIds: await setStarredPlayer(String(playerId), starred) });
+  } catch (err) {
+    const status = err instanceof DatabaseUnavailableError ? 503 : 500;
+    res.status(status).json({ error: err instanceof Error ? err.message : "Stars request failed" });
+  }
+});
+
+app.put("/api/stars", async (req, res) => {
+  try {
+    const { playerIds } = req.body ?? {};
+    if (!Array.isArray(playerIds)) {
+      res.status(400).json({ error: "Invalid stars request" });
+      return;
+    }
+    res.json({ playerIds: await replaceStarredPlayers(playerIds.map(String)) });
+  } catch (err) {
+    const status = err instanceof DatabaseUnavailableError ? 503 : 500;
+    res.status(status).json({ error: err instanceof Error ? err.message : "Stars request failed" });
+  }
+});
+
+app.get("/api/settings", async (_req, res) => {
+  try {
+    res.json({ myFranchiseId: await getMyFranchiseId() });
+  } catch (err) {
+    const status = err instanceof DatabaseUnavailableError ? 503 : 500;
+    res.status(status).json({ error: err instanceof Error ? err.message : "Settings request failed" });
+  }
+});
+
+app.put("/api/settings", async (req, res) => {
+  try {
+    const { myFranchiseId } = req.body ?? {};
+    if (!myFranchiseId) {
+      res.status(400).json({ error: "Invalid settings request" });
+      return;
+    }
+    res.json({ myFranchiseId: await setMyFranchiseId(String(myFranchiseId)) });
+  } catch (err) {
+    const status = err instanceof DatabaseUnavailableError ? 503 : 500;
+    res.status(status).json({ error: err instanceof Error ? err.message : "Settings request failed" });
   }
 });
 

@@ -6,11 +6,15 @@
   "scripts": {
     "dev": "pnpm --parallel --filter @mfl/api --filter @mfl/web dev",
     "build": "pnpm -r build",
-    "vercel-build": "pnpm --filter @mfl/web build",
+    "vercel-build": "pnpm --filter @mfl/web build && node scripts/sync-web-dist.mjs",
     "start": "pnpm --filter @mfl/api start"
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "postgres": "^3.4.7"
   },
   "pnpm": {
     "onlyBuiltDependencies": ["esbuild"]

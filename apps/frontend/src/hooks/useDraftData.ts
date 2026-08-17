@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getBootstrap, getLive } from "../api";
+import { getBootstrap, getLive, getSettings, saveSettings } from "../api";
 import type { Bootstrap, Live, Player } from "../types";
 
 const MY_TEAM_KEY = "obl-my-franchise";
@@ -22,6 +22,7 @@ export function useDraftData() {
     setMyTeamState(id);
     if (id) localStorage.setItem(MY_TEAM_KEY, id);
     else localStorage.removeItem(MY_TEAM_KEY);
+    if (id) saveSettings(id).catch(() => undefined);
   }, []);
 
   const refreshLive = useCallback(async () => {
@@ -44,6 +45,11 @@ export function useDraftData() {
         const boot = await getBootstrap();
         if (cancelled) return;
         setBootstrap(boot);
+        const settings = await getSettings();
+        if (!cancelled && settings?.myFranchiseId) {
+          setMyTeamState(settings.myFranchiseId);
+          localStorage.setItem(MY_TEAM_KEY, settings.myFranchiseId);
+        }
         const liveData = await refreshLive();
         if (cancelled) return;
         lastPicksMade.current = liveData.picksMade;
