@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "pnpm --parallel --filter @mfl/api --filter @mfl/web dev",
     "build": "pnpm -r build",
+    "vercel-build": "pnpm --filter @mfl/web build",
     "start": "pnpm --filter @mfl/api start"
   },
   "engines": {
