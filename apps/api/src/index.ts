@@ -1,6 +1,9 @@
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { handleBootstrap, handleHealth, handleLive } from "./handlers.js";
 import {
   DatabaseUnavailableError,
@@ -103,6 +106,32 @@ app.put("/api/settings", async (req, res) => {
     res.status(status).json({ error: err instanceof Error ? err.message : "Settings request failed" });
   }
 });
+
+function resolveWebDist(): string | null {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    join(here, "../dist"),
+    join(here, "../../dist"),
+    join(here, "../../apps/frontend/dist"),
+  ];
+  return candidates.find((dir) => existsSync(join(dir, "index.html"))) ?? null;
+}
+
+const webDist = resolveWebDist();
+if (webDist) {
+  app.use(express.static(webDist));
+  app.use((req, res, next) => {
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      next();
+      return;
+    }
+    if (req.path.startsWith("/api") || req.path === "/health") {
+      next();
+      return;
+    }
+    res.sendFile(join(webDist, "index.html"));
+  });
+}
 
 const port = process.env.PORT ? Number(process.env.PORT) : 3001;
 if (!process.env.VERCEL) {

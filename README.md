@@ -23,6 +23,9 @@ Starred players and your franchise (The Shove Weasels) persist in Supabase Postg
 
 ## Deploy on Vercel
 
-Connect the GitHub repo and leave the **root directory** as the repo root. `vercel.json` builds the React app into root `dist` and exposes `/api/*` as serverless functions. Output Directory should be `dist`.
+This repo supports two Vercel layouts:
 
-If the site ever shows `Cannot GET /…`, the project was treated as an Express server. Redeploy after this config so Vercel serves the frontend, not `apps/api` alone.
+- **Repo root** (preferred): Root Directory empty, Output Directory `dist`
+- **`apps/api`** (current project setting): the build copies the dashboard into `apps/api/dist` and keeps `/api/*` next to that folder
+
+If the site ever shows `Cannot GET /…`, Vercel is serving Express without the built frontend. Redeploy after a build that copies `dist`.
